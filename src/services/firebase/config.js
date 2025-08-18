@@ -5,13 +5,13 @@ import { getAuth, connectAuthEmulator } from 'firebase/auth'
 
 // Configuração do Firebase - SUBSTITUA PELOS SEUS DADOS
 const firebaseConfig = {
-  apiKey: "AIzaSyBtrRjLQR7sLX00VX9zqviOvZmoFqQSYOU",
-  authDomain: "younv-db.firebaseapp.com",
-  projectId: "younv-db",
-  storageBucket: "younv-db.firebasestorage.app",
-  messagingSenderId: "690640193086",
-  appId: "1:690640193086:web:008d04a0e2f1272dcd736f",
-  measurementId: "G-778QW9BKXK"
+  apiKey: "AIzaSyANuRQRB4qHMVZUbcjwsWngr9RhznlqB6o",
+  authDomain: "younv-in-71d99.firebaseapp.com",
+  projectId: "younv-in-71d99",
+  storageBucket: "younv-in-71d99.firebasestorage.app",
+  messagingSenderId: "493068481415",
+  appId: "1:493068481415:web:407c14f2dfccc317a71922",
+  measurementId: "G-XXSVMB08CF"
 }
 
 // Para desenvolvimento local, você pode usar o emulador
