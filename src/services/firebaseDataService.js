@@ -1,4 +1,4 @@
-// Serviço de dados híbrido Firebase/localStorage - VERSÃO ATUALIZADA COM NOVOS CAMPOS
+// Serviço de dados híbrido Firebase/localStorage - VERSÃO CORRIGIDA COM VALOR_AGENDAMENTO
 import firestoreService from './firebase/firestore'
 
 class FirebaseDataService {
@@ -54,19 +54,19 @@ class FirebaseDataService {
         outrosProfissionaisAgendados: data.outros_profissionais_agendados,
         quaisProfissionais: data.quais_profissionais,
         
-        // ATUALIZADO: Array de outros profissionais com TODOS os novos campos
+        // ✅ CORRIGIDO: Array de outros profissionais com valorAgendamento
         outrosProfissionais: data.outros_profissionais || [
-          { medicoId: '', especialidadeId: '', procedimentoId: '', dataAgendamento: '', valor: '', localAgendado: '', ativo: false },
-          { medicoId: '', especialidadeId: '', procedimentoId: '', dataAgendamento: '', valor: '', localAgendado: '', ativo: false },
-          { medicoId: '', especialidadeId: '', procedimentoId: '', dataAgendamento: '', valor: '', localAgendado: '', ativo: false },
-          { medicoId: '', especialidadeId: '', procedimentoId: '', dataAgendamento: '', valor: '', localAgendado: '', ativo: false },
-          { medicoId: '', especialidadeId: '', procedimentoId: '', dataAgendamento: '', valor: '', localAgendado: '', ativo: false }
+          { medicoId: '', especialidadeId: '', procedimentoId: '', dataAgendamento: '', valorAgendamento: '', localAgendado: '', ativo: false },
+          { medicoId: '', especialidadeId: '', procedimentoId: '', dataAgendamento: '', valorAgendamento: '', localAgendado: '', ativo: false },
+          { medicoId: '', especialidadeId: '', procedimentoId: '', dataAgendamento: '', valorAgendamento: '', localAgendado: '', ativo: false },
+          { medicoId: '', especialidadeId: '', procedimentoId: '', dataAgendamento: '', valorAgendamento: '', localAgendado: '', ativo: false },
+          { medicoId: '', especialidadeId: '', procedimentoId: '', dataAgendamento: '', valorAgendamento: '', localAgendado: '', ativo: false }
         ].map(prof => ({
           medicoId: prof.medico_id || prof.medicoId || '',
           especialidadeId: prof.especialidade_id || prof.especialidadeId || '',
           procedimentoId: prof.procedimento_id || prof.procedimentoId || '',
           dataAgendamento: prof.data_agendamento || prof.dataAgendamento || '',
-          valor: prof.valor || '',
+          valorAgendamento: prof.valor_agendamento || prof.valorAgendamento || '', // ✅ CORRIGIDO
           localAgendado: prof.local_agendado || prof.localAgendado || '',
           ativo: prof.ativo || false
         })),
@@ -128,21 +128,21 @@ class FirebaseDataService {
         outros_profissionais_agendados: data.outrosProfissionaisAgendados || data.outros_profissionais_agendados,
         quais_profissionais: data.quaisProfissionais || data.quais_profissionais,
         
-        // ATUALIZADO: Transformar array de outros profissionais COM TODOS os novos campos
+        // ✅ CORRIGIDO: Transformar array de outros profissionais COM valor_agendamento
         outros_profissionais: data.outrosProfissionais ? data.outrosProfissionais.map(prof => ({
           medico_id: prof.medicoId || prof.medico_id || '',
           especialidade_id: prof.especialidadeId || prof.especialidade_id || '',
           procedimento_id: prof.procedimentoId || prof.procedimento_id || '',
           data_agendamento: prof.dataAgendamento || prof.data_agendamento || '',
-          valor: prof.valor || '',
+          valor_agendamento: prof.valorAgendamento || prof.valor_agendamento || '', // ✅ CORRIGIDO
           local_agendado: prof.localAgendado || prof.local_agendado || '',
           ativo: prof.ativo || false
         })) : [
-          { medico_id: '', especialidade_id: '', procedimento_id: '', data_agendamento: '', valor: '', local_agendado: '', ativo: false },
-          { medico_id: '', especialidade_id: '', procedimento_id: '', data_agendamento: '', valor: '', local_agendado: '', ativo: false },
-          { medico_id: '', especialidade_id: '', procedimento_id: '', data_agendamento: '', valor: '', local_agendado: '', ativo: false },
-          { medico_id: '', especialidade_id: '', procedimento_id: '', data_agendamento: '', valor: '', local_agendado: '', ativo: false },
-          { medico_id: '', especialidade_id: '', procedimento_id: '', data_agendamento: '', valor: '', local_agendado: '', ativo: false }
+          { medico_id: '', especialidade_id: '', procedimento_id: '', data_agendamento: '', valor_agendamento: '', local_agendado: '', ativo: false },
+          { medico_id: '', especialidade_id: '', procedimento_id: '', data_agendamento: '', valor_agendamento: '', local_agendado: '', ativo: false },
+          { medico_id: '', especialidade_id: '', procedimento_id: '', data_agendamento: '', valor_agendamento: '', local_agendado: '', ativo: false },
+          { medico_id: '', especialidade_id: '', procedimento_id: '', data_agendamento: '', valor_agendamento: '', local_agendado: '', ativo: false },
+          { medico_id: '', especialidade_id: '', procedimento_id: '', data_agendamento: '', valor_agendamento: '', local_agendado: '', ativo: false }
         ],
         
         pagou_reserva: data.pagouReserva || data.pagou_reserva,
@@ -189,7 +189,7 @@ class FirebaseDataService {
   }
 
   // ==========================================
-  // NOVA FUNÇÃO: Migração para adicionar novos campos aos outros profissionais
+  // MIGRAÇÃO: Adicionar novos campos aos outros profissionais
   // ==========================================
   async migrateOutrosProfissionaisFields() {
     if (!this.useFirebase) {
@@ -209,36 +209,36 @@ class FirebaseDataService {
 
       for (const lead of rawLeads) {
         try {
-          // Verificar se precisa migrar (se não tem os novos campos ou estrutura antiga)
+          // Verificar se precisa migrar
           const needsMigration = !lead.outrosProfissionais || 
                                 !Array.isArray(lead.outrosProfissionais) ||
                                 lead.outrosProfissionais.length !== 5 ||
                                 lead.outrosProfissionais.some(prof => 
                                   !prof.hasOwnProperty('procedimentoId') ||
-                                  !prof.hasOwnProperty('valor') ||
+                                  !prof.hasOwnProperty('valorAgendamento') || // ✅ CORRIGIDO
                                   !prof.hasOwnProperty('localAgendado')
                                 )
 
           if (needsMigration) {
             const updatedLead = {
               ...lead,
-              // Estrutura nova completa de 5 slots com TODOS os campos
+              // ✅ CORRIGIDO: Estrutura nova completa com valorAgendamento
               outrosProfissionais: [
-                { medicoId: '', especialidadeId: '', procedimentoId: '', dataAgendamento: '', valor: '', localAgendado: '', ativo: false },
-                { medicoId: '', especialidadeId: '', procedimentoId: '', dataAgendamento: '', valor: '', localAgendado: '', ativo: false },
-                { medicoId: '', especialidadeId: '', procedimentoId: '', dataAgendamento: '', valor: '', localAgendado: '', ativo: false },
-                { medicoId: '', especialidadeId: '', procedimentoId: '', dataAgendamento: '', valor: '', localAgendado: '', ativo: false },
-                { medicoId: '', especialidadeId: '', procedimentoId: '', dataAgendamento: '', valor: '', localAgendado: '', ativo: false }
+                { medicoId: '', especialidadeId: '', procedimentoId: '', dataAgendamento: '', valorAgendamento: '', localAgendado: '', ativo: false },
+                { medicoId: '', especialidadeId: '', procedimentoId: '', dataAgendamento: '', valorAgendamento: '', localAgendado: '', ativo: false },
+                { medicoId: '', especialidadeId: '', procedimentoId: '', dataAgendamento: '', valorAgendamento: '', localAgendado: '', ativo: false },
+                { medicoId: '', especialidadeId: '', procedimentoId: '', dataAgendamento: '', valorAgendamento: '', localAgendado: '', ativo: false },
+                { medicoId: '', especialidadeId: '', procedimentoId: '', dataAgendamento: '', valorAgendamento: '', localAgendado: '', ativo: false }
               ].map((slot, index) => {
                 // Preservar dados antigos se existirem
                 const oldData = lead.outrosProfissionais?.[index] || {}
                 return {
                   medicoId: oldData.medicoId || '',
                   especialidadeId: oldData.especialidadeId || '',
-                  procedimentoId: oldData.procedimentoId || '', // NOVO
+                  procedimentoId: oldData.procedimentoId || '',
                   dataAgendamento: oldData.dataAgendamento || '',
-                  valor: oldData.valor || '', // NOVO
-                  localAgendado: oldData.localAgendado || '', // NOVO
+                  valorAgendamento: oldData.valorAgendamento || oldData.valor || '', // ✅ CORRIGIDO - aceita ambos
+                  localAgendado: oldData.localAgendado || '',
                   ativo: oldData.ativo || false
                 }
               })
@@ -608,7 +608,7 @@ class FirebaseDataService {
             lead.outrosProfissionais.length !== 5 ||
             lead.outrosProfissionais.some(prof => 
               !prof.hasOwnProperty('procedimentoId') ||
-              !prof.hasOwnProperty('valor') ||
+              !prof.hasOwnProperty('valorAgendamento') || // ✅ CORRIGIDO
               !prof.hasOwnProperty('localAgendado')
             )
           )
@@ -649,23 +649,23 @@ class FirebaseDataService {
               
               tags: lead.tags || [],
               
-              // ATUALIZADO: Campo outros profissionais com TODOS os novos campos
+              // ✅ CORRIGIDO: Campo outros profissionais com valorAgendamento
               outrosProfissionais: lead.outrosProfissionais && Array.isArray(lead.outrosProfissionais) && lead.outrosProfissionais.length === 5 
                 ? lead.outrosProfissionais.map(prof => ({
                     medicoId: prof.medicoId || '',
                     especialidadeId: prof.especialidadeId || '',
-                    procedimentoId: prof.procedimentoId || '', // NOVO
+                    procedimentoId: prof.procedimentoId || '',
                     dataAgendamento: prof.dataAgendamento || '',
-                    valor: prof.valor || '', // NOVO
-                    localAgendado: prof.localAgendado || '', // NOVO
+                    valorAgendamento: prof.valorAgendamento || prof.valor || '', // ✅ CORRIGIDO - aceita ambos
+                    localAgendado: prof.localAgendado || '',
                     ativo: prof.ativo || false
                   }))
                 : [
-                    { medicoId: '', especialidadeId: '', procedimentoId: '', dataAgendamento: '', valor: '', localAgendado: '', ativo: false },
-                    { medicoId: '', especialidadeId: '', procedimentoId: '', dataAgendamento: '', valor: '', localAgendado: '', ativo: false },
-                    { medicoId: '', especialidadeId: '', procedimentoId: '', dataAgendamento: '', valor: '', localAgendado: '', ativo: false },
-                    { medicoId: '', especialidadeId: '', procedimentoId: '', dataAgendamento: '', valor: '', localAgendado: '', ativo: false },
-                    { medicoId: '', especialidadeId: '', procedimentoId: '', dataAgendamento: '', valor: '', localAgendado: '', ativo: false }
+                    { medicoId: '', especialidadeId: '', procedimentoId: '', dataAgendamento: '', valorAgendamento: '', localAgendado: '', ativo: false },
+                    { medicoId: '', especialidadeId: '', procedimentoId: '', dataAgendamento: '', valorAgendamento: '', localAgendado: '', ativo: false },
+                    { medicoId: '', especialidadeId: '', procedimentoId: '', dataAgendamento: '', valorAgendamento: '', localAgendado: '', ativo: false },
+                    { medicoId: '', especialidadeId: '', procedimentoId: '', dataAgendamento: '', valorAgendamento: '', localAgendado: '', ativo: false },
+                    { medicoId: '', especialidadeId: '', procedimentoId: '', dataAgendamento: '', valorAgendamento: '', localAgendado: '', ativo: false }
                   ],
               
               criadoPorId: lead.criadoPorId || currentUser.id,
@@ -952,13 +952,13 @@ class FirebaseDataService {
       alterado_por_nome: currentUser.nome,
       alterado_por_email: currentUser.email,
       data_ultima_alteracao: new Date().toISOString(),
-      // ATUALIZADO: Garantir estrutura de outros profissionais no localStorage
+      // ✅ CORRIGIDO: Garantir estrutura de outros profissionais no localStorage
       outros_profissionais: item.outros_profissionais || [
-        { medico_id: '', especialidade_id: '', procedimento_id: '', data_agendamento: '', valor: '', local_agendado: '', ativo: false },
-        { medico_id: '', especialidade_id: '', procedimento_id: '', data_agendamento: '', valor: '', local_agendado: '', ativo: false },
-        { medico_id: '', especialidade_id: '', procedimento_id: '', data_agendamento: '', valor: '', local_agendado: '', ativo: false },
-        { medico_id: '', especialidade_id: '', procedimento_id: '', data_agendamento: '', valor: '', local_agendado: '', ativo: false },
-        { medico_id: '', especialidade_id: '', procedimento_id: '', data_agendamento: '', valor: '', local_agendado: '', ativo: false }
+        { medico_id: '', especialidade_id: '', procedimento_id: '', data_agendamento: '', valor_agendamento: '', local_agendado: '', ativo: false },
+        { medico_id: '', especialidade_id: '', procedimento_id: '', data_agendamento: '', valor_agendamento: '', local_agendado: '', ativo: false },
+        { medico_id: '', especialidade_id: '', procedimento_id: '', data_agendamento: '', valor_agendamento: '', local_agendado: '', ativo: false },
+        { medico_id: '', especialidade_id: '', procedimento_id: '', data_agendamento: '', valor_agendamento: '', local_agendado: '', ativo: false },
+        { medico_id: '', especialidade_id: '', procedimento_id: '', data_agendamento: '', valor_agendamento: '', local_agendado: '', ativo: false }
       ]
     }
     items.push(newItem)
