@@ -184,8 +184,8 @@ const Login = () => {
                 {loading ? 'Carregando...' : (isLogin ? 'Entrar' : 'Cadastrar')}
               </Button>
             </form>
-            
-            <div className="mt-4 text-center">
+            {/* BLOCO PARA CADASTRAR CONTA REMOVIDO */}
+            {/*<div className="mt-4 text-center">
               <Button
                 type="button"
                 variant="link"
@@ -197,7 +197,7 @@ const Login = () => {
                   : 'Já tem uma conta? Entre'
                 }
              </Button>
-            </div>
+            </div>*/}
           </CardContent>
         </Card>
         
