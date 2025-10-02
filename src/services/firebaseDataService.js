@@ -1,4 +1,4 @@
-// Serviço de dados híbrido Firebase/localStorage - VERSÃO CORRIGIDA COM OUTROS PROFISSIONAIS
+// Serviço de dados híbrido Firebase/localStorage - VERSÃO ATUALIZADA COM NOVOS CAMPOS
 import firestoreService from './firebase/firestore'
 
 class FirebaseDataService {
@@ -9,7 +9,6 @@ class FirebaseDataService {
 
   // Função para obter dados do usuário atual
   getCurrentUserInfo() {
-    // Primeiro tenta pegar do contexto de autenticação
     if (typeof window !== 'undefined' && window.currentUser) {
       return {
         id: window.currentUser.uid || window.currentUser.id,
@@ -18,7 +17,6 @@ class FirebaseDataService {
       }
     }
     
-    // Fallback para usuário padrão se não conseguir obter dados
     return {
       id: 'sistema',
       nome: 'Sistema',
@@ -56,17 +54,20 @@ class FirebaseDataService {
         outrosProfissionaisAgendados: data.outros_profissionais_agendados,
         quaisProfissionais: data.quais_profissionais,
         
-        // NOVO: Array de outros profissionais (5 slots)
+        // ATUALIZADO: Array de outros profissionais com TODOS os novos campos
         outrosProfissionais: data.outros_profissionais || [
-          { medicoId: '', especialidadeId: '', dataAgendamento: '', ativo: false },
-          { medicoId: '', especialidadeId: '', dataAgendamento: '', ativo: false },
-          { medicoId: '', especialidadeId: '', dataAgendamento: '', ativo: false },
-          { medicoId: '', especialidadeId: '', dataAgendamento: '', ativo: false },
-          { medicoId: '', especialidadeId: '', dataAgendamento: '', ativo: false }
+          { medicoId: '', especialidadeId: '', procedimentoId: '', dataAgendamento: '', valor: '', localAgendado: '', ativo: false },
+          { medicoId: '', especialidadeId: '', procedimentoId: '', dataAgendamento: '', valor: '', localAgendado: '', ativo: false },
+          { medicoId: '', especialidadeId: '', procedimentoId: '', dataAgendamento: '', valor: '', localAgendado: '', ativo: false },
+          { medicoId: '', especialidadeId: '', procedimentoId: '', dataAgendamento: '', valor: '', localAgendado: '', ativo: false },
+          { medicoId: '', especialidadeId: '', procedimentoId: '', dataAgendamento: '', valor: '', localAgendado: '', ativo: false }
         ].map(prof => ({
           medicoId: prof.medico_id || prof.medicoId || '',
           especialidadeId: prof.especialidade_id || prof.especialidadeId || '',
+          procedimentoId: prof.procedimento_id || prof.procedimentoId || '',
           dataAgendamento: prof.data_agendamento || prof.dataAgendamento || '',
+          valor: prof.valor || '',
+          localAgendado: prof.local_agendado || prof.localAgendado || '',
           ativo: prof.ativo || false
         })),
         
@@ -127,18 +128,21 @@ class FirebaseDataService {
         outros_profissionais_agendados: data.outrosProfissionaisAgendados || data.outros_profissionais_agendados,
         quais_profissionais: data.quaisProfissionais || data.quais_profissionais,
         
-        // NOVO: Transformar array de outros profissionais de volta para snake_case
+        // ATUALIZADO: Transformar array de outros profissionais COM TODOS os novos campos
         outros_profissionais: data.outrosProfissionais ? data.outrosProfissionais.map(prof => ({
           medico_id: prof.medicoId || prof.medico_id || '',
           especialidade_id: prof.especialidadeId || prof.especialidade_id || '',
+          procedimento_id: prof.procedimentoId || prof.procedimento_id || '',
           data_agendamento: prof.dataAgendamento || prof.data_agendamento || '',
+          valor: prof.valor || '',
+          local_agendado: prof.localAgendado || prof.local_agendado || '',
           ativo: prof.ativo || false
         })) : [
-          { medico_id: '', especialidade_id: '', data_agendamento: '', ativo: false },
-          { medico_id: '', especialidade_id: '', data_agendamento: '', ativo: false },
-          { medico_id: '', especialidade_id: '', data_agendamento: '', ativo: false },
-          { medico_id: '', especialidade_id: '', data_agendamento: '', ativo: false },
-          { medico_id: '', especialidade_id: '', data_agendamento: '', ativo: false }
+          { medico_id: '', especialidade_id: '', procedimento_id: '', data_agendamento: '', valor: '', local_agendado: '', ativo: false },
+          { medico_id: '', especialidade_id: '', procedimento_id: '', data_agendamento: '', valor: '', local_agendado: '', ativo: false },
+          { medico_id: '', especialidade_id: '', procedimento_id: '', data_agendamento: '', valor: '', local_agendado: '', ativo: false },
+          { medico_id: '', especialidade_id: '', procedimento_id: '', data_agendamento: '', valor: '', local_agendado: '', ativo: false },
+          { medico_id: '', especialidade_id: '', procedimento_id: '', data_agendamento: '', valor: '', local_agendado: '', ativo: false }
         ],
         
         pagou_reserva: data.pagouReserva || data.pagou_reserva,
@@ -185,10 +189,96 @@ class FirebaseDataService {
   }
 
   // ==========================================
+  // NOVA FUNÇÃO: Migração para adicionar novos campos aos outros profissionais
+  // ==========================================
+  async migrateOutrosProfissionaisFields() {
+    if (!this.useFirebase) {
+      console.log('Migração só funciona com Firebase ativo')
+      return { success: false, message: 'Firebase não está ativo' }
+    }
+
+    try {
+      console.log('🔄 Iniciando migração de campos de outros profissionais...')
+      
+      const rawLeads = await firestoreService.getAll('leads')
+      console.log(`📊 Encontrados ${rawLeads.length} leads para análise`)
+      
+      let migrated = 0
+      let total = rawLeads.length
+      const errors = []
+
+      for (const lead of rawLeads) {
+        try {
+          // Verificar se precisa migrar (se não tem os novos campos ou estrutura antiga)
+          const needsMigration = !lead.outrosProfissionais || 
+                                !Array.isArray(lead.outrosProfissionais) ||
+                                lead.outrosProfissionais.length !== 5 ||
+                                lead.outrosProfissionais.some(prof => 
+                                  !prof.hasOwnProperty('procedimentoId') ||
+                                  !prof.hasOwnProperty('valor') ||
+                                  !prof.hasOwnProperty('localAgendado')
+                                )
+
+          if (needsMigration) {
+            const updatedLead = {
+              ...lead,
+              // Estrutura nova completa de 5 slots com TODOS os campos
+              outrosProfissionais: [
+                { medicoId: '', especialidadeId: '', procedimentoId: '', dataAgendamento: '', valor: '', localAgendado: '', ativo: false },
+                { medicoId: '', especialidadeId: '', procedimentoId: '', dataAgendamento: '', valor: '', localAgendado: '', ativo: false },
+                { medicoId: '', especialidadeId: '', procedimentoId: '', dataAgendamento: '', valor: '', localAgendado: '', ativo: false },
+                { medicoId: '', especialidadeId: '', procedimentoId: '', dataAgendamento: '', valor: '', localAgendado: '', ativo: false },
+                { medicoId: '', especialidadeId: '', procedimentoId: '', dataAgendamento: '', valor: '', localAgendado: '', ativo: false }
+              ].map((slot, index) => {
+                // Preservar dados antigos se existirem
+                const oldData = lead.outrosProfissionais?.[index] || {}
+                return {
+                  medicoId: oldData.medicoId || '',
+                  especialidadeId: oldData.especialidadeId || '',
+                  procedimentoId: oldData.procedimentoId || '', // NOVO
+                  dataAgendamento: oldData.dataAgendamento || '',
+                  valor: oldData.valor || '', // NOVO
+                  localAgendado: oldData.localAgendado || '', // NOVO
+                  ativo: oldData.ativo || false
+                }
+              })
+            }
+            
+            await firestoreService.update('leads', lead.id, updatedLead)
+            migrated++
+            console.log(`✅ Lead ${lead.nomePackiente || lead.nome_paciente} migrado com novos campos`)
+          }
+        } catch (leadError) {
+          console.error(`❌ Erro ao migrar lead ${lead.id}:`, leadError)
+          errors.push({
+            leadId: lead.id,
+            error: leadError.message
+          })
+        }
+      }
+
+      console.log(`🎉 Migração de campos de outros profissionais concluída!`)
+      console.log(`📈 Estatísticas: ${migrated} de ${total} leads migrados`)
+
+      return {
+        success: true,
+        message: `Migração concluída! ${migrated} de ${total} leads atualizados com novos campos (procedimento, valor, local).`,
+        stats: { total, migrated, errors: errors.length }
+      }
+    } catch (error) {
+      console.error('❌ Erro na migração de campos de outros profissionais:', error)
+      return {
+        success: false,
+        message: `Erro na migração: ${error.message}`,
+        stats: { total: 0, migrated: 0, errors: 1 }
+      }
+    }
+  }
+
+  // ==========================================
   // FUNÇÕES PARA TAGS
   // ==========================================
 
-  // Migração para adicionar campos de usuário aos leads existentes
   async migrateLeadsForUserTracking() {
     if (!this.useFirebase) {
       console.log('Migração só funciona com Firebase ativo')
@@ -208,7 +298,6 @@ class FirebaseDataService {
 
       for (const lead of rawLeads) {
         try {
-          // Se o lead não tem os campos de usuário, adiciona
           const needsUserTracking = !lead.hasOwnProperty('criadoPorId') || 
                                    !lead.hasOwnProperty('criadoPorNome') ||
                                    !lead.hasOwnProperty('alteradoPorId') ||
@@ -257,7 +346,6 @@ class FirebaseDataService {
     }
   }
 
-  // Migração para adicionar campo tags aos leads existentes
   async migrateLeadsForTags() {
     if (!this.useFirebase) {
       console.log('Migração só funciona com Firebase ativo')
@@ -276,7 +364,6 @@ class FirebaseDataService {
 
       for (const lead of rawLeads) {
         try {
-          // Se o lead não tem o campo tags, adiciona array vazio
           if (!lead.hasOwnProperty('tags')) {
             const updatedLead = {
               ...lead,
@@ -314,75 +401,6 @@ class FirebaseDataService {
     }
   }
 
-  // NOVA: Migração para adicionar campo outros_profissionais aos leads existentes
-  async migrateLeadsForOutrosProfissionais() {
-    if (!this.useFirebase) {
-      console.log('Migração só funciona com Firebase ativo')
-      return { success: false, message: 'Firebase não está ativo' }
-    }
-
-    try {
-      console.log('🔄 Iniciando migração de outros profissionais...')
-      
-      const rawLeads = await firestoreService.getAll('leads')
-      console.log(`📊 Encontrados ${rawLeads.length} leads para análise`)
-      
-      let migrated = 0
-      let total = rawLeads.length
-      const errors = []
-
-      for (const lead of rawLeads) {
-        try {
-          // Se o lead não tem o campo outrosProfissionais ou tem estrutura antiga, migra
-          const needsOutrosProfissionaisMigration = !lead.hasOwnProperty('outrosProfissionais') || 
-                                                   !Array.isArray(lead.outrosProfissionais) ||
-                                                   lead.outrosProfissionais.length !== 5
-
-          if (needsOutrosProfissionaisMigration) {
-            const updatedLead = {
-              ...lead,
-              // Estrutura nova de 5 slots para outros profissionais
-              outrosProfissionais: [
-                { medicoId: '', especialidadeId: '', dataAgendamento: '', ativo: false },
-                { medicoId: '', especialidadeId: '', dataAgendamento: '', ativo: false },
-                { medicoId: '', especialidadeId: '', dataAgendamento: '', ativo: false },
-                { medicoId: '', especialidadeId: '', dataAgendamento: '', ativo: false },
-                { medicoId: '', especialidadeId: '', dataAgendamento: '', ativo: false }
-              ]
-            }
-            
-            await firestoreService.update('leads', lead.id, updatedLead)
-            migrated++
-            console.log(`✅ Lead ${lead.nomePackiente || lead.nome_paciente} migrado com outros profissionais`)
-          }
-        } catch (leadError) {
-          console.error(`❌ Erro ao migrar lead ${lead.id}:`, leadError)
-          errors.push({
-            leadId: lead.id,
-            error: leadError.message
-          })
-        }
-      }
-
-      console.log(`🎉 Migração de outros profissionais concluída!`)
-      console.log(`📈 Estatísticas: ${migrated} de ${total} leads migrados`)
-
-      return {
-        success: true,
-        message: `Migração concluída! ${migrated} de ${total} leads atualizados com estrutura de outros profissionais.`,
-        stats: { total, migrated, errors: errors.length }
-      }
-    } catch (error) {
-      console.error('❌ Erro na migração de outros profissionais:', error)
-      return {
-        success: false,
-        message: `Erro na migração: ${error.message}`,
-        stats: { total: 0, migrated: 0, errors: 1 }
-      }
-    }
-  }
-
-  // Criar uma nova tag
   async createTag(tagData) {
     if (!this.useFirebase) {
       console.log('Tags só funcionam com Firebase ativo')
@@ -401,7 +419,6 @@ class FirebaseDataService {
     }
   }
 
-  // Atualizar uma tag existente
   async updateTag(id, tagData) {
     if (!this.useFirebase) {
       console.log('Tags só funcionam com Firebase ativo')
@@ -420,7 +437,6 @@ class FirebaseDataService {
     }
   }
 
-  // Excluir uma tag (remove de todos os leads também)
   async deleteTag(id) {
     if (!this.useFirebase) {
       console.log('Tags só funcionam com Firebase ativo')
@@ -430,7 +446,6 @@ class FirebaseDataService {
     try {
       console.log('🗑️ Excluindo tag:', id)
       
-      // Primeiro, buscar todos os leads que usam esta tag
       const rawLeads = await firestoreService.getAll('leads')
       let leadsUpdated = 0
       
@@ -445,7 +460,6 @@ class FirebaseDataService {
         }
       }
       
-      // Depois, excluir a tag
       await firestoreService.delete('tags', id)
       
       console.log(`✅ Tag excluída. ${leadsUpdated} leads atualizados.`)
@@ -456,7 +470,6 @@ class FirebaseDataService {
     }
   }
 
-  // Atualizar as tags de um lead específico
   async updateLeadTags(leadId, tags) {
     if (!this.useFirebase) {
       console.log('Tags só funcionam com Firebase ativo')
@@ -464,13 +477,11 @@ class FirebaseDataService {
     }
 
     try {
-      // Buscar o lead atual
       const currentLead = await firestoreService.getById('leads', leadId)
       if (!currentLead) {
         throw new Error('Lead não encontrado')
       }
 
-      // Atualizar apenas o campo tags
       const updatedLead = {
         ...currentLead,
         tags: tags || []
@@ -486,7 +497,6 @@ class FirebaseDataService {
     }
   }
 
-  // Buscar leads por tags específicas
   async getLeadsByTags(tagIds) {
     if (!this.useFirebase) {
       console.log('Tags só funcionam com Firebase ativo')
@@ -498,7 +508,6 @@ class FirebaseDataService {
       const filteredLeads = []
       
       for (const lead of rawLeads) {
-        // Verifica se o lead tem pelo menos uma das tags procuradas
         if (lead.tags && tagIds.some(tagId => lead.tags.includes(tagId))) {
           const transformedLead = this.transformFromFirebase('leads', lead)
           filteredLeads.push(transformedLead)
@@ -512,7 +521,6 @@ class FirebaseDataService {
     }
   }
 
-  // Criar tags padrão (executar uma vez)
   async createDefaultTags() {
     if (!this.useFirebase) {
       console.log('Tags só funcionam com Firebase ativo')
@@ -561,10 +569,9 @@ class FirebaseDataService {
   }
 
   // ==========================================
-  // FUNÇÕES EXISTENTES (mantidas e atualizadas)
+  // FUNÇÕES EXISTENTES (CRUD)
   // ==========================================
 
-  // FUNÇÃO: Migração de campos ausentes nos leads (incluindo outros profissionais)
   async migrateLeadsFields() {
     if (!this.useFirebase) {
       console.log('Migração só funciona com Firebase ativo')
@@ -574,7 +581,6 @@ class FirebaseDataService {
     try {
       console.log('🚀 Iniciando migração de campos dos leads...')
       
-      // Buscar todos os leads diretamente do Firestore (sem transformação)
       const rawLeads = await firestoreService.getAll('leads')
       console.log(`📊 Encontrados ${rawLeads.length} leads para análise`)
       
@@ -586,7 +592,6 @@ class FirebaseDataService {
         try {
           console.log(`🔍 Analisando lead: ${lead.nomePackiente || lead.nome_paciente} (ID: ${lead.id})`)
           
-          // Verificar se os novos campos existem (incluindo outros profissionais)
           const needsMigration = (
             lead.valorFechadoParcial === undefined ||
             lead.followup1Realizado === undefined ||
@@ -598,18 +603,20 @@ class FirebaseDataService {
             lead.tags === undefined ||
             lead.criadoPorId === undefined ||
             lead.alteradoPorId === undefined ||
-            // NOVO: Verificar campo outros profissionais
-            lead.outrosProfissionais === undefined ||
+            !lead.outrosProfissionais ||
             !Array.isArray(lead.outrosProfissionais) ||
-            lead.outrosProfissionais.length !== 5
+            lead.outrosProfissionais.length !== 5 ||
+            lead.outrosProfissionais.some(prof => 
+              !prof.hasOwnProperty('procedimentoId') ||
+              !prof.hasOwnProperty('valor') ||
+              !prof.hasOwnProperty('localAgendado')
+            )
           )
           
           if (needsMigration) {
             console.log(`⚡ Migrando lead: ${lead.nomePackiente || lead.nome_paciente}`)
             
-            // Criar objeto com TODOS os campos (existentes + novos)
             const updatedLead = {
-              // Campos existentes (preservar)
               nomePackiente: lead.nomePackiente || lead.nome_paciente || '',
               telefone: lead.telefone || '',
               dataNascimento: lead.dataNascimento || lead.data_nascimento || '',
@@ -629,10 +636,9 @@ class FirebaseDataService {
               orcamentoFechado: lead.orcamentoFechado || lead.orcamento_fechado || '',
               observacaoGeral: lead.observacaoGeral || lead.observacao_geral || '',
               perfilComportamentalDisc: lead.perfilComportamentalDisc || lead.perfil_comportamental_disc || '',
-              status: lead.status || 'Lead',
+              status: lead.status || 'Sem Interação',
               dataRegistroContato: lead.dataRegistroContato || lead.data_registro_contato || new Date().toISOString(),
               
-              // NOVOS CAMPOS - GARANTIR EXISTÊNCIA
               valorFechadoParcial: lead.valorFechadoParcial || lead.valor_fechado_parcial || 0,
               followup1Realizado: lead.followup1Realizado || lead.followup1_realizado || false,
               followup1Data: lead.followup1Data || lead.followup1_data || '',
@@ -641,21 +647,27 @@ class FirebaseDataService {
               followup3Realizado: lead.followup3Realizado || lead.followup3_realizado || false,
               followup3Data: lead.followup3Data || lead.followup3_data || '',
               
-              // NOVO: Campo tags
               tags: lead.tags || [],
               
-              // NOVO: Campo outros profissionais (5 slots)
+              // ATUALIZADO: Campo outros profissionais com TODOS os novos campos
               outrosProfissionais: lead.outrosProfissionais && Array.isArray(lead.outrosProfissionais) && lead.outrosProfissionais.length === 5 
-                ? lead.outrosProfissionais 
+                ? lead.outrosProfissionais.map(prof => ({
+                    medicoId: prof.medicoId || '',
+                    especialidadeId: prof.especialidadeId || '',
+                    procedimentoId: prof.procedimentoId || '', // NOVO
+                    dataAgendamento: prof.dataAgendamento || '',
+                    valor: prof.valor || '', // NOVO
+                    localAgendado: prof.localAgendado || '', // NOVO
+                    ativo: prof.ativo || false
+                  }))
                 : [
-                    { medicoId: '', especialidadeId: '', dataAgendamento: '', ativo: false },
-                    { medicoId: '', especialidadeId: '', dataAgendamento: '', ativo: false },
-                    { medicoId: '', especialidadeId: '', dataAgendamento: '', ativo: false },
-                    { medicoId: '', especialidadeId: '', dataAgendamento: '', ativo: false },
-                    { medicoId: '', especialidadeId: '', dataAgendamento: '', ativo: false }
+                    { medicoId: '', especialidadeId: '', procedimentoId: '', dataAgendamento: '', valor: '', localAgendado: '', ativo: false },
+                    { medicoId: '', especialidadeId: '', procedimentoId: '', dataAgendamento: '', valor: '', localAgendado: '', ativo: false },
+                    { medicoId: '', especialidadeId: '', procedimentoId: '', dataAgendamento: '', valor: '', localAgendado: '', ativo: false },
+                    { medicoId: '', especialidadeId: '', procedimentoId: '', dataAgendamento: '', valor: '', localAgendado: '', ativo: false },
+                    { medicoId: '', especialidadeId: '', procedimentoId: '', dataAgendamento: '', valor: '', localAgendado: '', ativo: false }
                   ],
               
-              // NOVÍSSIMO: Campos de rastreamento de usuário
               criadoPorId: lead.criadoPorId || currentUser.id,
               criadoPorNome: lead.criadoPorNome || currentUser.nome,
               criadoPorEmail: lead.criadoPorEmail || currentUser.email,
@@ -665,7 +677,6 @@ class FirebaseDataService {
               dataUltimaAlteracao: lead.dataUltimaAlteracao || new Date().toISOString()
             }
             
-            // Atualizar no Firestore
             await firestoreService.update('leads', lead.id, updatedLead)
             migratedCount++
             
@@ -715,7 +726,6 @@ class FirebaseDataService {
     }
   }
 
-  // Inicializar dados padrão
   async initializeData() {
     if (this.useFirebase) {
       await firestoreService.initializeDefaultData()
@@ -725,7 +735,6 @@ class FirebaseDataService {
   }
 
   initializeLocalStorageData() {
-    // Dados padrão para localStorage (mantido para compatibilidade)
     if (!localStorage.getItem('younv_especialidades')) {
       const especialidades = [
         { id: '1', nome: 'Dermatologia', descricao: 'Cuidados com a pele', ativo: true },
@@ -770,18 +779,15 @@ class FirebaseDataService {
     }
   }
 
-  // CORREÇÃO: Métodos genéricos para CRUD com ordenação correta
   async getAll(entity) {
     if (this.useFirebase) {
       try {
-        // CORREÇÃO: Para leads, ordenar por data de criação mais recente primeiro
         const orderField = entity === 'leads' ? 'dataRegistroContato' : 'createdAt'
         const data = await firestoreService.getAll(this.getCollectionName(entity), orderField, 'desc')
-        console.log(`Dados brutos do Firebase para ${entity}:`, data) // Debug
+        console.log(`Dados brutos do Firebase para ${entity}:`, data)
         
-        // Transformar dados do Firebase para formato frontend
         const transformedData = data.map(item => this.transformFromFirebase(entity, item))
-        console.log(`Dados transformados para ${entity}:`, transformedData) // Debug
+        console.log(`Dados transformados para ${entity}:`, transformedData)
         
         return transformedData
       } catch (error) {
@@ -812,7 +818,6 @@ class FirebaseDataService {
   async create(entity, item) {
     if (this.useFirebase) {
       try {
-        // NOVO: Adicionar informações do usuário para criação
         const currentUser = this.getCurrentUserInfo()
         const itemWithUserInfo = {
           ...item,
@@ -825,12 +830,11 @@ class FirebaseDataService {
           data_ultima_alteracao: new Date().toISOString()
         }
 
-        // Transformar dados para o formato Firebase
         const firebaseData = this.transformToFirebase(entity, itemWithUserInfo)
-        console.log(`Criando no Firebase - ${entity}:`, firebaseData) // Debug
+        console.log(`Criando no Firebase - ${entity}:`, firebaseData)
         
         const result = await firestoreService.create(this.getCollectionName(entity), firebaseData)
-        console.log(`Resultado da criação no Firebase:`, result) // Debug
+        console.log(`Resultado da criação no Firebase:`, result)
         
         return this.transformFromFirebase(entity, result)
       } catch (error) {
@@ -842,14 +846,12 @@ class FirebaseDataService {
     }
   }
 
-  // CORREÇÃO PRINCIPAL: Método update corrigido para preservar dados de criação
   async update(entity, id, updatedItem) {
     if (this.useFirebase) {
       try {
         console.log(`🔄 INICIANDO atualização de ${entity} ${id}`)
         console.log('📥 Dados recebidos para atualização:', updatedItem)
 
-        // PASSO 1: Buscar dados atuais DIRETAMENTE do Firebase (não transformados)
         const currentFirebaseData = await firestoreService.getById(this.getCollectionName(entity), id)
         if (!currentFirebaseData) {
           throw new Error(`${entity} com ID ${id} não encontrado no Firebase`)
@@ -859,25 +861,18 @@ class FirebaseDataService {
 
         const currentUser = this.getCurrentUserInfo()
         
-        // PASSO 2: Transformar dados de atualização para formato Firebase PRIMEIRO
         const updatedFirebaseData = this.transformToFirebase(entity, updatedItem)
         console.log('🔄 Dados de atualização transformados para Firebase:', updatedFirebaseData)
         
-        // PASSO 3: Mesclar dados preservando campos críticos
         const finalUpdateData = {
-          // PRESERVAR todos os dados atuais do Firebase
           ...currentFirebaseData,
-          // APLICAR as atualizações (já transformadas)
           ...updatedFirebaseData,
-          // PRESERVAR campos críticos que nunca devem ser sobrescritos
-          createdAt: currentFirebaseData.createdAt, // Preservar timestamp de criação
-          // Para leads, preservar dados de criação originais
+          createdAt: currentFirebaseData.createdAt,
           ...(entity === 'leads' && {
             criadoPorId: currentFirebaseData.criadoPorId || currentUser.id,
             criadoPorNome: currentFirebaseData.criadoPorNome || currentUser.nome,
             criadoPorEmail: currentFirebaseData.criadoPorEmail || currentUser.email,
             dataRegistroContato: currentFirebaseData.dataRegistroContato || new Date().toISOString(),
-            // Atualizar dados de modificação
             alteradoPorId: currentUser.id,
             alteradoPorNome: currentUser.nome,
             alteradoPorEmail: currentUser.email,
@@ -887,12 +882,10 @@ class FirebaseDataService {
 
         console.log('🎯 Dados finais para atualização no Firebase:', finalUpdateData)
 
-        // PASSO 4: Atualizar diretamente no Firebase (sem nova transformação)
         const result = await firestoreService.update(this.getCollectionName(entity), id, finalUpdateData)
         
         console.log('✅ Atualização no Firebase concluída:', result)
         
-        // PASSO 5: Retornar dados transformados para o frontend
         const finalResult = this.transformFromFirebase(entity, result)
         console.log('📤 Dados retornados para o frontend:', finalResult)
         
@@ -907,7 +900,6 @@ class FirebaseDataService {
           updatedItem
         })
         
-        // Fallback para localStorage em caso de erro
         console.log('🔄 Tentando fallback para localStorage...')
         return this.updateInLocalStorage(entity, id, updatedItem)
       }
@@ -929,18 +921,16 @@ class FirebaseDataService {
     }
   }
 
-  // CORREÇÃO: Métodos localStorage (fallback) com ordenação correta
   getFromLocalStorage(entity) {
     const key = `younv_${entity}`
     const data = localStorage.getItem(key)
     const items = data ? JSON.parse(data) : []
     
-    // CORREÇÃO: Ordenar leads por data mais recente primeiro
     if (entity === 'leads') {
       return items.sort((a, b) => {
         const dateA = new Date(a.data_registro_contato || a.createdAt || 0)
         const dateB = new Date(b.data_registro_contato || b.createdAt || 0)
-        return dateB - dateA // Mais recente primeiro
+        return dateB - dateA
       })
     }
     
@@ -962,13 +952,13 @@ class FirebaseDataService {
       alterado_por_nome: currentUser.nome,
       alterado_por_email: currentUser.email,
       data_ultima_alteracao: new Date().toISOString(),
-      // NOVO: Garantir estrutura de outros profissionais no localStorage
+      // ATUALIZADO: Garantir estrutura de outros profissionais no localStorage
       outros_profissionais: item.outros_profissionais || [
-        { medico_id: '', especialidade_id: '', data_agendamento: '', ativo: false },
-        { medico_id: '', especialidade_id: '', data_agendamento: '', ativo: false },
-        { medico_id: '', especialidade_id: '', data_agendamento: '', ativo: false },
-        { medico_id: '', especialidade_id: '', data_agendamento: '', ativo: false },
-        { medico_id: '', especialidade_id: '', data_agendamento: '', ativo: false }
+        { medico_id: '', especialidade_id: '', procedimento_id: '', data_agendamento: '', valor: '', local_agendado: '', ativo: false },
+        { medico_id: '', especialidade_id: '', procedimento_id: '', data_agendamento: '', valor: '', local_agendado: '', ativo: false },
+        { medico_id: '', especialidade_id: '', procedimento_id: '', data_agendamento: '', valor: '', local_agendado: '', ativo: false },
+        { medico_id: '', especialidade_id: '', procedimento_id: '', data_agendamento: '', valor: '', local_agendado: '', ativo: false },
+        { medico_id: '', especialidade_id: '', procedimento_id: '', data_agendamento: '', valor: '', local_agendado: '', ativo: false }
       ]
     }
     items.push(newItem)
@@ -983,16 +973,13 @@ class FirebaseDataService {
       const currentUser = this.getCurrentUserInfo()
       const currentItem = items[index]
       
-      // CORREÇÃO: Preservar dados originais de criação
       items[index] = { 
-        ...currentItem, // Preserva TODOS os dados atuais
-        ...updatedItem, // Sobrescreve apenas os campos que estão sendo atualizados
-        // Preservar dados originais de criação (não sobrescrever)
+        ...currentItem,
+        ...updatedItem,
         criado_por_id: currentItem.criado_por_id,
         criado_por_nome: currentItem.criado_por_nome,
         criado_por_email: currentItem.criado_por_email,
         data_registro_contato: currentItem.data_registro_contato,
-        // Atualizar apenas dados de modificação
         alterado_por_id: currentUser.id,
         alterado_por_nome: currentUser.nome,
         alterado_por_email: currentUser.email,
@@ -1013,7 +1000,6 @@ class FirebaseDataService {
     return true
   }
 
-  // Métodos específicos para relatórios
   async getLeadsByPeriod(startDate, endDate) {
     if (this.useFirebase) {
       try {
