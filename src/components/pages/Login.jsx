@@ -186,17 +186,17 @@ const Login = () => {
             </form>
             
             <div className="mt-4 text-center">
-             // <Button
-             //   type="button"
-             //   variant="link"
-             //   onClick={toggleMode}
-             //   className="text-sm"
-             // >
-              //  {isLogin 
-               //   ? 'Não tem uma conta? Cadastre-se' 
-                //  : 'Já tem uma conta? Entre'
-               // }
-             // </Button>
+              <Button
+                type="button"
+                variant="link"
+                onClick={toggleMode}
+                className="text-sm"
+              >
+                {isLogin 
+                  ? 'Não tem uma conta? Cadastre-se' 
+                  : 'Já tem uma conta? Entre'
+                }
+             </Button>
             </div>
           </CardContent>
         </Card>
