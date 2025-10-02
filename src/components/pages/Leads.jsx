@@ -13,6 +13,7 @@ import { useFirestore } from '@/hooks/useFirestore'
 import { useAuth } from '@/contexts/AuthContext'
 import firebaseDataService from '@/services/firebaseDataService'
 
+
 // FUNÇÃO UTILITÁRIA PARA DEBOUNCE
 function debounce(func, wait) {
   let timeout;
@@ -1077,11 +1078,15 @@ export default function Leads() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
-            {activeTab === 'leads' ? 'Leads e Pacientes' : 'Gerenciamento de Tags'}
+            {activeTab === 'leads' ? 'Leads e Pacientes' : 
+             activeTab === 'lembretes' ? 'Lembretes e Agendamentos' : 
+             'Gerenciamento de Tags'}
           </h1>
           <p className="text-muted-foreground">
             {activeTab === 'leads' 
               ? 'Gerencie leads e acompanhe conversões' 
+              : activeTab === 'lembretes'
+              ? 'Visualize e gerencie lembretes de consultas e procedimentos'
               : 'Organize e gerencie as tags do sistema'
             }
           </p>
@@ -1094,6 +1099,13 @@ export default function Leads() {
           >
             <Users className="mr-2 h-4 w-4" />
             Leads ({leads.length})
+          </Button>
+          <Button
+            variant={activeTab === 'lembretes' ? 'default' : 'outline'}
+            onClick={() => setActiveTab('lembretes')}
+          >
+            <Calendar className="mr-2 h-4 w-4" />
+            Lembretes
           </Button>
           <Button
             variant={activeTab === 'tags' ? 'default' : 'outline'}
@@ -2443,6 +2455,10 @@ export default function Leads() {
             </CardContent>
           </Card>
         </div>
+      )}
+
+      {activeTab === 'lembretes' && (
+        <LembretesDashboard />
       )}
 
       {activeTab === 'tags' && (
